@@ -30,15 +30,14 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // ROOT ClassImp Macro
 ////////////////////////////////////////////////////////////////////////////////
-ClassImp(TutorialApplication)
+ClassImp(TutorialApplication);
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // construction / destruction
-    ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// construction / destruction
+////////////////////////////////////////////////////////////////////////////////
 
-    //______________________________________________________________________________
-    TutorialApplication::TutorialApplication(const char* name,
-                                             const char* title)
+//______________________________________________________________________________
+TutorialApplication::TutorialApplication(const char* name, const char* title)
     : TVirtualMCApplication(name, title),
       fPrimaryMomentum(1.0, 0, 0, 1.0),
       fPrimaryPDG(-13),
@@ -61,10 +60,10 @@ ClassImp(TutorialApplication)
 //______________________________________________________________________________
 TutorialApplication::~TutorialApplication() {
   delete fStack;
-  delete gMC;
+  // delete gMC;
   // gMC = 0;
-  gGeoManager->Delete();
-  gGeoManager = 0;
+  // gGeoManager->Delete();
+  // gGeoManager = 0;
   fHistFolder->Delete();
   fTopFolder->Delete();
   delete hEdepTrans;
