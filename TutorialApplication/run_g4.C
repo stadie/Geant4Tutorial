@@ -1,9 +1,9 @@
 
 //#include "$G4PATH/geant4_vmc/examples/macro/basiclibs.C"
 #include "TROOT.h"
-#include "TSystem.h"
-#include "include/TutorialApplication.hh"
-#include "include/TutorialMainFrame.hh"
+//#include "TSystem.h"
+//#include "include/TutorialApplication.hh"
+//#include "include/TutorialMainFrame.hh"
 
 void run_g4() {
   // Load basic libraries
@@ -16,7 +16,7 @@ void run_g4() {
   // gSystem->Load("libTutorialApplication");
   gSystem->SetIncludePath(
       "-I/usr/include -I$G4PATH/geant4_vmc/include/geant4vmc "
-      "-I/usr/local/include/Geant4 -I$G4PATH/TutorialApplication/include");
+      "-I/usr/local/include/Geant4 -Iinclude -I$G4INSTALL/include/Geant4");
   gROOT->ProcessLine(".L src/TutorialStack.cxx+g");
   gROOT->ProcessLine(".L src/TGeomWrapper.cc+g");
   gROOT->ProcessLine(".L src/TutorialApplication.cxx+g");

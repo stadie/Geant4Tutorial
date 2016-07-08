@@ -99,6 +99,8 @@ class TutorialApplication : public TVirtualMCApplication {
   void SetPrimaryGeant(Int_t geant);
   void SetDrawPad(TVirtualPad* pad) { fPad = pad; }
 
+  TVirtualPad* GetDrawPad() const { return fPad;}
+
   void DrawEvent();
   void Help();
 

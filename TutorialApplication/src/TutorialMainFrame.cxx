@@ -73,6 +73,7 @@ TutorialMainFrame::TutorialMainFrame(TutorialApplication* app) : fApp(app) {
 
     fMomentumText = new TGTextEntry(hframe, new TGTextBuffer(10));
     fMomentumText->Resize(50, 20);
+    fMomentumText->SetAlignment(kTextRight);
     hframe->AddFrame(fMomentumText, new TGLayoutHints(kLHintsLeft, 0, 0, 5, 5));
 
     fMomentumSlider->Connect("PositionChanged(Int_t)", "TutorialMainFrame",
@@ -136,7 +137,7 @@ TutorialMainFrame::~TutorialMainFrame() {}
 void TutorialMainFrame::HandleMomentumSlider(int pos) {
   double p = pow(10, (pos / 40.0) - 2);
 
-  char buffer[5];
+  char buffer[10];
 
   sprintf(buffer, "%2.2f", p);
   fMomentumText->SetText(buffer);
