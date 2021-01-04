@@ -12,6 +12,7 @@
 #include "TMinuit.h"
 #include "TList.h"
 #include "TPad.h"
+#include "TF1.h"
 
 #include <cassert>
 
@@ -59,44 +60,58 @@ private:
   ClassDef(Cluster,0)
 };
 
+
 class Track {
 public:
-  Track(double R, double x0, double z0) :
-    fR(R), fX0(x0), fZ0(z0),fCov(3) {}
+  Track(double c, double phi, double d) :
+    fCurv(c), fPhi0(phi), fD0(d),fCov(3) {}
   
   THelix* helix() const;
   
-  int charge() const { return fR > 0 ? 1 : -1;}
-  double r() const { return std::abs(fR);}
-  double x0() const { return fX0;}
-  double z0() const { return fZ0;}
-  double phi0() const { return 0;}
-  
-
-
-  double pt() const { return 0;}//needs changes
-
-  double rErr() const { return sqrt(fCov(0,0));}
-  double ptErr() const { return 1000;}//needs changes
-
-
+  int charge() const { return fCurv > 0 ? 1 : -1;}
+  double r() const { return std::abs(1/curvature());}
+  double curvature() const { return fCurv ? std::abs(fCurv) : 1e-10;}
+  double d0() const { return fD0;}
+  double phi0() const { return fPhi0;}
   double cov(int i, int j) const { return fCov(i,j);}
-  
+  double chi2() const { return fChi2;}
+  int nHits() const { return fNHits;}
+
+  void setCurvature(double c) { fCurv = c;};
+  void setD0(double d0) { fD0 = d0;};
+  void setPhi0(double phi0) { fPhi0 = phi0;};
+  void setChi2(double chi2) { fChi2 = chi2;};
+  void setNHits(int nhits) { fNHits = nhits;};
   void setParameters(double a, double b, double c) {
-    fR  = a;
-    fX0 = b;
-    fZ0 = c;
+    fCurv  = a;
+    fPhi0  = b;
+    fD0    = c;
   }
-  
+  double pt() const { return 1.49898e-03 * 2 * B() *r();}
+
+  double rErr() const { return sqrt(fCov(0,0))*r()*r();}
+  double ptErr() const { return 1.49898e-03 * 2 *  B() * rErr();}
+
+
   void setCov(int i, int j, double c) { fCov(i,j) = c;}
   
-  double x(double lambda) const { return 0;}//needs changes
-  double z(double lambda) const { return 0;}//needs changes
-  double y(double) const { return 0; }
+  double x(double lambda) const { return x0() + r() * charge() * sin(charge()*lambda + phi0());}
+  double z(double lambda) const { return z0() - r() * charge() * cos(charge()*lambda + phi0());}
+  double y(double ) const { return 0; }
   
-  double lambdaFromX(double posx) const { //needs changes
-    return 0;
-  }
+  double lambdaFromX(double posx) const {
+    double arg =  (posx-x0()) /charge()/r();
+    if(arg < -1) arg = -1;
+    if(arg > 1) arg =1;
+    return charge()*(asin(arg ) - phi0());}
+
+  double x0() const {return -sin(phi0()) * (d0()+charge()*r()) - 50;}
+  double z0() const {return  cos(phi0()) * (d0()+charge()*r());}
+
+private:
+  double fCurv, fPhi0, fD0, fChi2;
+  int fNHits;
+  TMatrixDSym fCov;
 
   static double B() {
     TutorialApplication* app = (TutorialApplication*)TutorialApplication::Instance();
@@ -105,10 +120,6 @@ public:
     app->Field(x,bfield);
     return bfield[1]/10;
   }
-
-private:
-  double fR, fX0, fZ0;
-  TMatrixDSym fCov;
 };
 
 THelix* Track::helix() const {
@@ -142,7 +153,7 @@ unsigned char getSignal(const std::string& n)
   //add noise
   c += gRandom->Gaus(0,3);
   //noise cut
-  int noisecut = 0;
+  int noisecut = 12;
   if( c < noisecut ) return 0;
   if(c > 255) return 255;
   return c;
@@ -186,7 +197,7 @@ int updateClusters(TObjArray* clusters)
         if(strips[0]) {
 	  //std::cout << "strip with signal:" << gGeoManager->GetPath() << ":" << strips[0] << '\n';
           int nstrips = 0;
-	  double zmin,zmax;
+          double zmin,zmax;
           gGeoManager->GetCurrentVolume()->GetShape()->GetAxisRange(3,zmin,zmax);
           double pitch = zmax-zmin;
           double local[3]={0,0,0};
@@ -216,6 +227,7 @@ int updateClusters(TObjArray* clusters)
   }//loop over layers
   return clusters->GetEntriesFast();
 }
+
 
 int reconstructHitsSimple(TObjArray* clusters) 
 {
@@ -248,7 +260,7 @@ int reconstructHitsBinary(TObjArray* clusters)
   return clusters->GetEntriesFast();
 }
 
-int reconstructHitsWeighted(TObjArray* clusters) 
+int reconstructHitsWeighted(TObjArray* clusters)
 {
   for(int i = 0 ; i < clusters->GetEntriesFast() ; ++i) {
     Cluster* c = (Cluster*)clusters->At(i);
@@ -266,7 +278,7 @@ int reconstructHits(TObjArray* clusters) {
   return reconstructHitsBinary(clusters);
   //return reconstructHitsWeighted(clusters);
 }
-  
+
 
 double getTrueZ(double detx) {
   //get primary track
@@ -335,24 +347,26 @@ void fcn(Int_t &, Double_t *, Double_t &f, Double_t *par, Int_t) {
 
 
 Track* fitTrack(const std::vector<Cluster*>& clusters) {
-  gTrack = new Track(100,-50,100);
+  gTrack = new Track(0,0,0);
   gClusters = &clusters;
   
   TMinuit * minuit = new TMinuit(3);
   
   minuit->SetFCN(&fcn);
-  //minuit->DefineParameter(0,"Curvature",gTrack->curvature(),0.00001,0,0);
-  //minuit->DefineParameter(1,"Phi0",gTrack->phi0(),0.001,0,0);
-  //minuit->DefineParameter(2,"D0",gTrack->d0(),0.1,0,0); 
-  minuit->DefineParameter(0,"R",(gTrack->charge() * gTrack->r()),1,0,0);
-  minuit->DefineParameter(1,"X0",gTrack->x0(),1,0,0);
-  minuit->DefineParameter(2,"Z0",gTrack->z0(),1,0,0);
+  minuit->DefineParameter(0,"Curvature",gTrack->curvature(),0.00001,0,0);
+  minuit->DefineParameter(1,"Phi0",gTrack->phi0(),0.001,0,0);
+  minuit->DefineParameter(2,"D0",gTrack->d0(),0.1,0,0);
+  //minuit->DefineParameter(0,"R",(gTrack->charge() * gTrack->r()),1,0,0);
+  //minuit->DefineParameter(1,"X0",gTrack->x0(),1,0,0);
+  //minuit->DefineParameter(2,"Z0",gTrack->z0(),1,0,0);
   minuit->SetPrintLevel(1);
   int iret = minuit->Migrad();
   //minuit->PrintResults(1,0);
   if(iret != 0) {
     std::cout << "track fit failed.\n";
     gTrack->setParameters(1.0e10,0,0);
+    gTrack->setNHits(0);
+    gTrack->setChi2(1e10);
   } else {
     std::vector<double> cov(9);
     minuit->mnemat(&cov.front(),3);
@@ -361,6 +375,11 @@ Track* fitTrack(const std::vector<Cluster*>& clusters) {
 	gTrack->setCov(i,j,cov[i*3+j]);
       }
     }
+    gTrack->setNHits(clusters.size());
+    double amin,edm,errdef;
+    int nvpar,nparx;
+    minuit->mnstat(amin,edm,errdef,nvpar,nparx,iret);
+    gTrack->setChi2(amin);
   }
   return gTrack;
 }
@@ -396,49 +415,57 @@ void tracking2()
 
   bool doFit = false;
 
-  // define particle and control parameters of loop   
-  unsigned int nevt = 1;
-  double p = 1.0;
-  app->SetPrimaryPDG(-13);    // +/-11: PDG code of e+/- 
-  /* other PDG codes     22: Photon    +-13: muon   
-                     +/-211: pion   +/-2212: proton     */
-  app->SetPrimaryMomentum(p);
-  // generate  some events
-  hresid1->Reset();
-  hresid2->Reset();
-  hresid3->Reset();
-  hpt->Reset();
-  hptpull->Reset(); 
-  TObjArray* clusters = new TObjArray();
-  clusters->SetOwner(true);
-  for(unsigned int i=0;i<nevt;++i) {
-    bool draw = !i;
-    double z = gRandom->Uniform(-5.0,5.0);
-    app->SetPrimaryVertex(-50,0,z);
-    double phi = gRandom->Uniform(TMath::Pi()/2-0.1,TMath::Pi()/2+0.1);
-    TVector3 dir;
-    dir.SetPtThetaPhi(p,phi,0);
-    app->SetPrimaryMomentum(dir);
-    removeAllHelices(app->GetDrawPad());
-    app->RunMC(1, draw);
-    updateClusters(clusters);
-    reconstructHits(clusters);
-    plotResdiuals(clusters);
-    if(doFit) {
-      if(clusters->GetEntriesFast() >= 3) {
-	std::vector<Cluster*> clust;
-	for(int i = 0 ; i < clusters->GetEntriesFast() ; ++i) {
-	  Cluster* c = (Cluster*)clusters->At(i);
-	  clust.push_back(c);
-	}	
-	Track *t = fitTrack(clust);
-	if(draw) t->helix()->Draw();
-	hpt->Fill(t->pt());
-	hptpull->Fill((t->pt()-p)/t->ptErr());
-      } else {
-	std::cout << "Warning: Not enough hits for track fit.\n";
+  TH2F* hpt2 = new TH2F("hpt2", " ;p_{T} [Gev]; #frac{p_{T}^{reco}-p_{T}}{p_{T}};", 15, 1, 15, 40,-0.1,0.1);
+  TH1F* hpterr = new TH1F("hpterr",";p_{T} [Gev]; #sigma(#frac{p_{T}^{reco}-p_{T}}{p_{T}})",12,1,15);
+  for(int bin = 1 ; bin <= hpt2->GetNbinsX() ; ++bin) {
+    // define particle and control parameters of loop
+    unsigned int nevt = 500;
+    double p = ((TAxis*)hpt2->GetXaxis())->GetBinCenter(bin);;
+    app->SetPrimaryPDG(-13);    // +/-11: PDG code of e+/-
+    /* other PDG codes     22: Photon    +-13: muon
+       +/-211: pion   +/-2212: proton     */
+    app->SetPrimaryMomentum(p);
+    // generate  some events
+    hresid1->Reset();
+    hresid2->Reset();
+    hresid3->Reset();
+    hpt->Delete();
+    hpt = new TH1F("hpt","; p_{T} [GeV]",20,p-1,p+1);
+    hptpull->Reset();
+    TObjArray* clusters = new TObjArray();
+    clusters->SetOwner(true);
+    for(unsigned int i=0;i<nevt;++i) {
+      bool draw = !i;
+      double z = gRandom->Uniform(-5.0, 5.0);
+      app->SetPrimaryVertex(-50, 0, z);
+      double phi = gRandom->Uniform(TMath::Pi() / 2 - 0.1, TMath::Pi() / 2 + 0.1);
+      TVector3 dir;
+      dir.SetPtThetaPhi(p, phi, 0);
+      app->SetPrimaryMomentum(dir);
+      removeAllHelices(app->GetDrawPad());
+      app->RunMC(1, draw);
+      updateClusters(clusters);
+      reconstructHits(clusters);
+      plotResdiuals(clusters);
+      if (doFit) {
+        if (clusters->GetEntriesFast() >= 3) {
+          std::vector < Cluster * > clust;
+          for (int i = 0; i < clusters->GetEntriesFast(); ++i) {
+            Cluster * c = (Cluster *) clusters->At(i);
+            clust.push_back(c);
+          }
+          Track *t = fitTrack(clust);
+          if (draw) t->helix()->Draw();
+          hpt->Fill(t->pt());
+          hpt2->Fill(p, (t->pt() - p) / p);
+          hptpull->Fill((t->pt() - p) / t->ptErr());
+        } else {
+          std::cout << "Warning: Not enough hits for track fit.\n";
+        }
       }
     }
+    hpterr->SetBinContent(bin,hpt->GetRMS());
+    hpterr->SetBinError(bin,hpt->GetRMSError());
   }
   TCanvas* c = new TCanvas("c");
   c->Divide(3,2);
@@ -462,5 +489,13 @@ void tracking2()
     hpt->Draw();
     c2->cd(2);
     hptpull->Draw();
+    TCanvas* c3 = new TCanvas("c3");
+    TF1* f= new TF1("f","sqrt([0]*[0]*x*x+[1]*[1])");
+    c3->Divide(2,1);
+    c3->cd(1);
+    hpterr->Fit(f);
+    c3->cd(2);
+    hpt2->FitSlicesY();
+    ((TH1F*)gROOT->FindObject("hpt2_2"))->Fit(f);
   }
 }

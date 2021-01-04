@@ -97,8 +97,9 @@ void CaloAna()
   hcounts->SetXTitle("energy [GeV]");
   hcounts->SetYTitle("mean number of counts");
   TH2D* hresponse = new TH2D("hresponse","measured energy/particle energy vs particle energy; energy [GeV]; response",
-			     20,0.,10.,50,0,2);
-
+			     20,0.,10, 50,0,2);
+  const double C = 1./53;
+  // const double C = 1./176;
 //simulate events at fixed momentum
   TH1F* hhelp; // for analysis of internal histograms
   Double_t xp[1]={0.90},xq[1];
@@ -129,13 +130,14 @@ void CaloAna()
   }
   
   // events at different momenta
-  nevt = 100; p = 0.1;
+  nevt = 1000; p = 0.1;
   double stepping = 9.9 / nevt;
   // generate a large number of events
   for(unsigned int i=0;i<nevt;++i) {
     app->SetPrimaryMomentum(p);
     app->RunMC(1,!(i%10));
     hcounts->Fill(p,CountChargedinScint());
+    hresponse->Fill(p,C*CountChargedinScint()/p);
     p += stepping;
     
     // reset internal histograms
@@ -147,5 +149,11 @@ void CaloAna()
   c->cd(1);  hx->Draw();
   c->cd(2);  hwidth->Draw();
   c->cd(3);  hlength->Draw();
-  c->cd(4);  hcounts->Draw();
+  c->cd(4);  hcounts->Fit("pol1");
+  TCanvas* c2 = new TCanvas("c2"); c2->Divide(2,1);
+  c2->cd(1);
+  hresponse->Draw();
+  c2->cd(2);
+  hresponse->FitSlicesY();
+  hresponse_2->Draw();
 }
