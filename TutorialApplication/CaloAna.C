@@ -5,6 +5,7 @@
 #include "TH1F.h"
 #include "TCanvas.h"
 #include "TROOT.h"
+#include "TF1.h"
 #include <iostream>
 #include <string>
 
@@ -67,9 +68,9 @@ void CaloAna()
 {
   TutorialApplication* app = (TutorialApplication*)TutorialApplication::Instance();
 // initialize geometry: volumes and materials of a Sampling Calorimeter   
-  Double_t AbsWid=2.;         //Absorber width
+  Double_t AbsWid=0.3;         //Absorber width
   Double_t SciWid=1.;         //Scintillator width, 
-  Double_t SizeFact=0.7;      //size of the calorimeter in interaction lengths labmda_I, 4.
+  Double_t SizeFact=10;      //size of the calorimeter in interaction lengths labmda_I, 4.
   Int_t IMat=1;               //material 1:Pb 2:Fe 
   TString geom("geometry/SamplingCalorimeter(");
   geom+=AbsWid; geom.Append(",");
@@ -96,9 +97,8 @@ void CaloAna()
   // option "s": show sigma(i) instead of sigma(i)/sqrt(n_i)
   hcounts->SetXTitle("energy [GeV]");
   hcounts->SetYTitle("mean number of counts");
-  TH2D* hresponse = new TH2D("hresponse","measured energy/particle energy vs particle energy; energy [GeV]; response",
-			     20,0.,10, 50,0,2);
-  const double C = 1./53;
+  TH2D* hresponse = new TH2D("hresponse","measured energy/particle energy vs particle energy; energy [GeV]; response",10,1.,20, 50,0,2);
+  const double C = 3./345;
   // const double C = 1./176;
 //simulate events at fixed momentum
   TH1F* hhelp; // for analysis of internal histograms
@@ -107,12 +107,12 @@ void CaloAna()
   unsigned int nevt = 100;
   double       p = 3;//GeV
 
-  app->SetPrimaryPDG(-11); 
+  app->SetPrimaryPDG(11); 
   /* PDG codes     22: Photon    +/-11: e+/-  +-13: muon   
                +/-211: pion    +/-2212: proton              */
   app->SetPrimaryMomentum(p);
   for(unsigned int i = 0 ; i < nevt ; ++i) {
-    app->RunMC(1,!(i%10)); 
+    app->RunMC(1,!(i%100)); 
     // fill starting point of shower (pos. of first secondary)
     hx->Fill(XofFirstSecondary());
     // access GEANT internal histograms
@@ -130,20 +130,20 @@ void CaloAna()
   }
   
   // events at different momenta
-  nevt = 1000; p = 0.1;
-  double stepping = 9.9 / nevt;
-  // generate a large number of events
-  for(unsigned int i=0;i<nevt;++i) {
-    app->SetPrimaryMomentum(p);
-    app->RunMC(1,!(i%10));
-    hcounts->Fill(p,CountChargedinScint());
-    hresponse->Fill(p,C*CountChargedinScint()/p);
-    p += stepping;
-    
-    // reset internal histograms
-    app->FinishRun();
+  nevt = 500; 
+  for(int bin = 1 ; bin <= hresponse->GetNbinsX() + 1 ; ++bin) {
+    // define particle and control parameters of loop
+    double p = ((TAxis*)hresponse->GetXaxis())->GetBinCenter(bin);
+    // generate a large number of events
+    for(unsigned int i=0;i<nevt;++i) {
+      app->SetPrimaryMomentum(p);
+      app->RunMC(1,!(i%100));
+      hcounts->Fill(p,CountChargedinScint());
+      hresponse->Fill(p,C*CountChargedinScint()/p);      
+      // reset internal histograms
+      app->FinishRun();
+    }
   }
-  
   // display results  
   TCanvas* c = new TCanvas(); c->Divide(2,2);
   c->cd(1);  hx->Draw();
@@ -155,5 +155,8 @@ void CaloAna()
   hresponse->Draw();
   c2->cd(2);
   hresponse->FitSlicesY();
-  hresponse_2->Draw();
+  TH1D* hresponse_2 = (TH1D*)gROOT->FindObject("hresponse_2");
+  TF1* f= new TF1("f","sqrt([0]*[0]/x+[1]*[1]+[2]*[2]/x/x)");
+  f->SetParNames("S","C","N");
+  hresponse_2->Fit(f);
 }

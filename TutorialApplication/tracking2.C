@@ -21,9 +21,12 @@ typedef TMatrixTSym<double>	TMatrixDSym;
 TH1F *hlayer1 = new TH1F("hlayer1","layer1;z [cm]; counts",100/0.0150,-50,50);
 TH1F *hlayer2 = new TH1F("hlayer2","layer2;z [cm]; counts",100/0.0150,-50,50);
 TH1F *hlayer3 = new TH1F("hlayer3","layer3;z [cm]; counts",100/0.0150,-50,50);
-TH1F *hresid1 = new TH1F("hresid1","resid1; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
-TH1F *hresid2 = new TH1F("hresid2","resid2; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
-TH1F *hresid3 = new TH1F("hresid3","resid3; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
+TH1F *hresid1 = new TH1F("hresid1","layer 1; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
+TH1F *hresid2 = new TH1F("hresid2","layer 2; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
+TH1F *hresid3 = new TH1F("hresid3","layer 3; z_{hit}-z_{true} [cm]; events",100,-0.1,0.1);
+TH1F *hpull1 = new TH1F("hpull1","layer 1; (z_{hit}-z_{true})/#Delta z; events",100,-5,5);
+TH1F *hpull2 = new TH1F("hpull2","layer 2; (z_{hit}-z_{true})/#Delta z; events",100,-5,5);
+TH1F *hpull3 = new TH1F("hpull3","layer 3; (z_{hit}-z_{true})/#Delta z; events",100,-5,5);
 TH1F *hpt = new TH1F("hpt","; p_{T} [GeV]",100,0,10);
 TH1F *hptpull = new TH1F("hptpull","; (p_{T}^{meas} - p_{T}^{true})/#sigma",100,-10,10);
 
@@ -153,7 +156,7 @@ unsigned char getSignal(const std::string& n)
   //add noise
   c += gRandom->Gaus(0,3);
   //noise cut
-  int noisecut = 12;
+  int noisecut = 15;
   if( c < noisecut ) return 0;
   if(c > 255) return 255;
   return c;
@@ -264,19 +267,26 @@ int reconstructHitsWeighted(TObjArray* clusters)
 {
   for(int i = 0 ; i < clusters->GetEntriesFast() ; ++i) {
     Cluster* c = (Cluster*)clusters->At(i);
-    //compute weithed mean
+    //compute weigthed mean
+    double sumsig = 0;
+    double sumsig2 = 0;
+    double mean = 0;
     for(int j = 0 ; j < c->nStrips() ; ++j) {
       int sig = c->signal(j);
+      sumsig += sig;
+      sumsig2 += sig * sig;
+      mean += j * sig;
     }
-    c->SetZ(0);
-    c->setErrZ(0);
+    mean /= sumsig;
+    c->SetZ(c->ZofFirstStrip() + mean * c->pitch());
+    c->setErrZ(sqrt(sumsig2/sumsig/sumsig/12)*c->pitch());
   }
   return clusters->GetEntriesFast();
 }
 
 int reconstructHits(TObjArray* clusters) {
-  return reconstructHitsBinary(clusters);
-  //return reconstructHitsWeighted(clusters);
+  //return reconstructHitsBinary(clusters);
+  return reconstructHitsWeighted(clusters);
 }
 
 
@@ -308,13 +318,19 @@ void plotResdiuals(TObjArray* clusters) {
     double x = c->X();
     //fill residual plots; x-position of layers hardcoded!!!
     double zorig = getTrueZ(x);    
-    if(c->layer() == 1)
+    if(c->layer() == 1) {
       hresid1->Fill(zorig-c->Z());
+      hpull1->Fill((zorig-c->Z())/c->errZ());
+    }
     else {
-      if(c->layer() == 2)
+      if(c->layer() == 2) {
 	hresid2->Fill(zorig-c->Z());
-      else if(c->layer() == 3)
+	hpull2->Fill((zorig-c->Z())/c->errZ());
+      }
+      else if(c->layer() == 3) {
 	hresid3->Fill(zorig-c->Z());
+	hpull3->Fill((zorig-c->Z())/c->errZ());
+      }
     }
   }
 }
@@ -413,14 +429,14 @@ void tracking2()
   geom+=Bfield; geom.Append(")"); 
   app->InitMC(geom); 
 
-  bool doFit = false;
+  bool doFit = true;
 
-  TH2F* hpt2 = new TH2F("hpt2", " ;p_{T} [Gev]; #frac{p_{T}^{reco}-p_{T}}{p_{T}};", 15, 1, 15, 40,-0.1,0.1);
-  TH1F* hpterr = new TH1F("hpterr",";p_{T} [Gev]; #sigma(#frac{p_{T}^{reco}-p_{T}}{p_{T}})",12,1,15);
-  for(int bin = 1 ; bin <= hpt2->GetNbinsX() ; ++bin) {
+  TH2F* hpt2 = new TH2F("hpt2", " ;p_{T} [Gev]; #frac{p_{T}^{reco}-p_{T}}{p_{T}};", 15, 1, 15, 40,-0.2,0.2);
+  TH1F* hpterr = new TH1F("hpterr",";p_{T} [Gev]; #sigma(#frac{p_{T}^{reco}-p_{T}}{p_{T}})",15,1,15);
+  for(int bin = 1 ; bin <= hpt2->GetNbinsX() + 1 ; ++bin) {
     // define particle and control parameters of loop
     unsigned int nevt = 500;
-    double p = ((TAxis*)hpt2->GetXaxis())->GetBinCenter(bin);;
+    double p = ((TAxis*)hpt2->GetXaxis())->GetBinCenter(bin);
     app->SetPrimaryPDG(-13);    // +/-11: PDG code of e+/-
     /* other PDG codes     22: Photon    +-13: muon
        +/-211: pion   +/-2212: proton     */
@@ -429,6 +445,10 @@ void tracking2()
     hresid1->Reset();
     hresid2->Reset();
     hresid3->Reset();
+    hpull1->Reset();
+    hpull2->Reset();
+    hpull3->Reset();
+
     hpt->Delete();
     hpt = new TH1F("hpt","; p_{T} [GeV]",20,p-1,p+1);
     hptpull->Reset();
@@ -470,17 +490,17 @@ void tracking2()
   TCanvas* c = new TCanvas("c");
   c->Divide(3,2);
   c->cd(1);
-  hlayer1->Draw("hist");
+  hresid1->Draw("hist");
   c->cd(2);
-  hlayer2->Draw("hist");
+  hresid2->Draw("hist");
   c->cd(3);
-  hlayer3->Draw("hist");
+  hresid3->Draw("hist");
   c->cd(4);
-  hresid1->Draw();
+  hpull1->Draw();
   c->cd(5);
-  hresid2->Draw();
+  hpull2->Draw();
   c->cd(6);
-  hresid3->Draw();
+  hpull3->Draw();
 
   if(doFit) {
     TCanvas* c2 = new TCanvas("c2");
@@ -491,11 +511,12 @@ void tracking2()
     hptpull->Draw();
     TCanvas* c3 = new TCanvas("c3");
     TF1* f= new TF1("f","sqrt([0]*[0]*x*x+[1]*[1])");
+    TF1* f2= new TF1("f2","sqrt([0]*[0]*x*x+[1]*[1])");
     c3->Divide(2,1);
     c3->cd(1);
     hpterr->Fit(f);
     c3->cd(2);
     hpt2->FitSlicesY();
-    ((TH1F*)gROOT->FindObject("hpt2_2"))->Fit(f);
+    ((TH1F*)gROOT->FindObject("hpt2_2"))->Fit(f2);
   }
 }
