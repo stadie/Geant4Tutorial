@@ -4,9 +4,11 @@ SHELL ["/bin/bash", "-c"]
 ARG APPS_DIR=/usr/local
 RUN conda create -y --name geant --channel=conda-forge geant4 root cmake make
 RUN conda clean --all
+RUN conda init
 
 ARG VMC_DIR=$APPS_DIR/vmc
-RUN conda activate geant && \
+RUN . ~/.bashrc
+    conda activate geant && \
     git clone http://github.com/vmc-project/vmc.git $VMC_DIR/git_source && \
     cd $VMC_DIR && \
     git checkout v2-0 && \
