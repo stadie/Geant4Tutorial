@@ -2,7 +2,7 @@ FROM condaforge/miniforge3:24.9.2-0
 
 ARG APPS_DIR=/usr/local
 RUN conda create -y --name geant --channel=conda-forge geant4 root cmake make
-RUN conda clean --all
+RUN conda clean --all -y
 
 SHELL ["conda", "run", "-n", "geant", "/bin/bash", "-c"]
 
