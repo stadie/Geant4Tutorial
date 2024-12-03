@@ -48,3 +48,7 @@ RUN git clone http://github.com/vmc-project/geant4_vmc.git $GEANT4_VMC_DIR/git_s
     make install && \
     cd .. && \
     rm -rf build git_source
+
+ARG USE_VGM=1
+ARG LD_LIBRARY_PATH=$VGM_DIR/lib:VMC_DIR/lib:GEANT4_VMC_DIR/lib:$LD_LIBRARY_PATH
+RUN echo $LD_LIBRARY_PATH
