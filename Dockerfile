@@ -43,12 +43,12 @@ RUN git clone http://github.com/vmc-project/geant4_vmc.git $GEANT4_VMC_DIR/git_s
     cd .. && \
     mkdir build && \
     cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX=$GEANT4_VMC_DIR -DGeant4VMC_USE_VGM=ON -DGeant4VMC_BUILD_EXAMPLES=OFF -DGeant4VMC_USE_GEANT4_UI=OFF -DGeant4VMC_USE_GEANT4_VIS=OFF -DGeant4VMC_INSTALL_EXAMPLES=OFF $GEANT4_VMC_DIR/git_source && \
+    cmake -DCMAKE_INSTALL_PREFIX=$GEANT4_VMC_DIR -DGeant4VMC_USE_VGM=ON -DGeant4VMC_BUILD_EXAMPLES=ON -DGeant4VMC_USE_GEANT4_UI=OFF -DGeant4VMC_USE_GEANT4_VIS=OFF -DGeant4VMC_INSTALL_EXAMPLES=ON $GEANT4_VMC_DIR/git_source && \
     make -j4 && \
     make install && \
     cd .. && \
     rm -rf build git_source
 
 ARG USE_VGM=1
-ARG LD_LIBRARY_PATH=$VGM_DIR/lib:VMC_DIR/lib:GEANT4_VMC_DIR/lib:$LD_LIBRARY_PATH
-RUN echo $LD_LIBRARY_PATH
+RUN export LD_LIBRARY_PATH=$VGM_DIR/lib:VMC_DIR/lib:GEANT4_VMC_DIR/lib:$LD_LIBRARY_PATH && \
+    echo $LD_LIBRARY_PATH
