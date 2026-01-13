@@ -5,7 +5,7 @@ RUN useradd -ms /bin/bash student
 USER student
 WORKDIR /home/student
 ARG APPS_DIR=/home/student
-RUN conda create -y --name geant --channel=conda-forge geant4=11.3 root=6.33 cmake make
+RUN conda create -y --name geant --channel=conda-forge geant4=11.3 root=6.32 cmake make
 RUN conda clean --all -y
 
 SHELL ["conda", "run", "-n", "geant", "/bin/bash", "-c"]
