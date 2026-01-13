@@ -12,9 +12,8 @@ SHELL ["conda", "run", "-n", "geant", "/bin/bash", "-c"]
 
 ARG VMC_DIR=$APPS_DIR/vmc
 RUN mkdir $VMC_DIR
-RUN git clone --depth 1 http://github.com/vmc-project/vmc.git $VMC_DIR/git_source && \
+RUN git clone --depth 1 --branch v2-1 http://github.com/vmc-project/vmc.git $VMC_DIR/git_source && \
     cd $VMC_DIR/git_source && \
-    git checkout v2-0 && \
     cd .. && \
     mkdir build && \
     cd build && \
