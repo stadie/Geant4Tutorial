@@ -5,7 +5,7 @@ RUN useradd -ms /bin/bash student
 USER student
 WORKDIR /home/student
 ARG APPS_DIR=/home/student
-RUN conda create -y --name geant --channel=conda-forge geant4 root=6.30 cmake make
+RUN conda create -y --name geant --channel=conda-forge geant4=11.3 root=6.33 cmake make
 RUN conda clean --all -y
 
 SHELL ["conda", "run", "-n", "geant", "/bin/bash", "-c"]
@@ -26,7 +26,7 @@ RUN git clone --depth 1 --branch v2-1 http://github.com/vmc-project/vmc.git $VMC
 
 ARG VGM_DIR=$APPS_DIR/vgm
 RUN mkdir $VGM_DIR
-RUN git clone --depth 1 --branch v5-2 http://github.com/vmc-project/vgm.git $VGM_DIR/git_source && \
+RUN git clone --depth 1 --branch v5-4 http://github.com/vmc-project/vgm.git $VGM_DIR/git_source && \
     cd $VGM_DIR/git_source && \
     cd .. && \
     mkdir build && \
@@ -39,7 +39,7 @@ RUN git clone --depth 1 --branch v5-2 http://github.com/vmc-project/vgm.git $VGM
 
 ARG GEANT4_VMC_DIR=$APPS_DIR/geant4_vmc
 RUN mkdir $GEANT4_VMC_DIR
-RUN git clone --depth 1 --branch  v6-6-p2 http://github.com/vmc-project/geant4_vmc.git $GEANT4_VMC_DIR/git_source && \
+RUN git clone --depth 1 --branch  v6-7 http://github.com/vmc-project/geant4_vmc.git $GEANT4_VMC_DIR/git_source && \
     cd $GEANT4_VMC_DIR/git_source && \
     cd .. && \
     mkdir build && \
