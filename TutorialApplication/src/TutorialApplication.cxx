@@ -43,21 +43,30 @@ ClassImp(TutorialApplication)
       fPrimaryMomentum(1.0, 0, 0, 1.0),
       fPrimaryPDG(-13),
       fCurrentTrack(0),
-      fGeoName("geometry/g1"),
+      fGeoName("geometry/pbbox"),
       fInit(false),
       fPad(0),
       hEdepLong(0),
       hEdepTrans(0),
       hPrimaryEnergy(0) {
-  fTopFolder = gROOT->GetRootFolder()->AddFolder("Geant4", "Geant4");
-  gROOT->GetListOfBrowsables()->Add(fTopFolder, "Geant4");
-  fHistFolder = fTopFolder->AddFolder("Histograms", "Geant Histograms");
-  new TGeoManager("GeometryManager", "Geometry Manager for Geant");
-  fTopFolder->Add(gGeoManager);
 
+  // [FIX] Check if Geometry already exists (Master vs Worker)
+  if (!gGeoManager) {
+      // MASTER THREAD: Create the Geometry and Folders
+      fTopFolder = gROOT->GetRootFolder()->AddFolder("Geant4", "Geant4");
+      gROOT->GetListOfBrowsables()->Add(fTopFolder, "Geant4");
+      fHistFolder = fTopFolder->AddFolder("Histograms", "Geant Histograms");
+      new TGeoManager("GeometryManager", "Geometry Manager for Geant");
+      fTopFolder->Add(gGeoManager);
+  } else {
+      // WORKER THREAD: Re-use existing pointers
+      fTopFolder = (TFolder*)gROOT->GetRootFolder()->FindObject("Geant4");
+      if (fTopFolder) fHistFolder = (TFolder*)fTopFolder->FindObject("Histograms");
+  }
+
+  // Every thread needs its own stack, so this stays outside!
   fStack = new TutorialStack();
 }
-
 //______________________________________________________________________________
 TutorialApplication::~TutorialApplication() {
   delete fStack;
@@ -324,7 +333,11 @@ void TutorialApplication::ConstructGeometry() {
 }
 
 //______________________________________________________________________________
-void TutorialApplication::InitGeometry() {}
+void TutorialApplication::InitGeometry() {
+  if (gMC && fStack) {
+        gMC->SetStack(fStack);
+    }
+}
 
 //______________________________________________________________________________
 void TutorialApplication::GeneratePrimaries() {
@@ -453,6 +466,12 @@ void TutorialApplication::Help() {
                        "incoming particle to three."
        << endl;
   cout << GetName() << ".Help()                  : prints this text." << endl;
+}
+
+// [FIX] Dummy implementation for Multi-Threading
+// This satisfies the requirement, even if we run single-threaded.
+TutorialApplication* TutorialApplication::CloneForWorker() const {
+  return new TutorialApplication(GetName(), GetTitle());
 }
 
 /*

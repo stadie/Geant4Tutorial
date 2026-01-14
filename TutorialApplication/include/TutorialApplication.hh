@@ -54,7 +54,8 @@ class TutorialApplication : public TVirtualMCApplication {
   void InitMC(const char* setup = "geometry/g1");
   void RunMC(Int_t nofEvents = 1, bool draw = true);
   void FinishRun();
-
+  //       This one is added 
+  virtual TutorialApplication* CloneForWorker() const;
   // static access method
   static TutorialApplication* Instance();
 
